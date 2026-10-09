@@ -1,0 +1,9 @@
+.git
+.gitignore
+venv
+__pycache__
+*.pyc
+db.sqlite3
+server.out.log
+scans/*.pyc
+scans/__pycache__
