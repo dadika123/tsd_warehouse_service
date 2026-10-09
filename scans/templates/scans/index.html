@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Сканы склада</title>
+    <style>
+        body {
+            font-family: Segoe UI, Arial, sans-serif;
+            margin: 16px;
+            color: #222;
+            background: #f5f7fa;
+        }
+        h1 { font-size: 20px; margin: 0 0 8px; }
+        .meta { margin-bottom: 12px; color: #5a6a7a; font-size: 14px; }
+        .meta a { color: #ff9800; text-decoration: none; font-weight: 600; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #d8e0eb;
+            padding: 6px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th { background: #eef2f7; }
+        tbody tr:nth-child(even) { background: #fafbfd; }
+        td.num { text-align: right; color: #5a6a7a; }
+        .empty { text-align: center; color: #5a6a7a; padding: 20px; }
+        .live { color: #25aa00; }
+    </style>
+</head>
+<body>
+    <h1>Сканы паллет</h1>
+    <div class="meta">
+        Всего записей: <span id="total">{{ total }}</span> &middot; показаны последние {{ scans|length }}
+        &middot; <span id="live" class="live">обновление в реальном времени</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>№</th>
+                <th>94 &middot; Данные для Солво</th>
+                <th>95 &middot; УИП</th>
+                <th>96 &middot; Номер груза</th>
+                <th>97 &middot; Номер паллеты</th>
+                <th>Создан</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+            {% for scan in scans %}
+            <tr>
+                <td class="num">{{ scan.id }}</td>
+                <td>{{ scan.solvo_data }}</td>
+                <td>{{ scan.uip }}</td>
+                <td>{{ scan.cargo }}</td>
+                <td>{{ scan.pallet }}</td>
+                <td>{{ scan.created_at|date:"d.m.Y H:i:s" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td class="empty" colspan="6">Нет данных</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        (function () {
+            const tbody = document.getElementById('tbody');
+            const totalEl = document.getElementById('total');
+            const liveEl = document.getElementById('live');
+
+            function addRow(scan) {
+                if (!tbody) return;
+                const empty = tbody.querySelector('td.empty');
+                if (empty) empty.parentElement.remove();
+
+                const tr = document.createElement('tr');
+                const created = scan.created_at
+                    ? new Date(scan.created_at).toLocaleString('ru-RU')
+                    : '';
+                const cells = [scan.id, scan.solvo_data, scan.uip, scan.cargo, scan.pallet, created];
+                cells.forEach(function (value, i) {
+                    const td = document.createElement('td');
+                    if (i === 0) td.className = 'num';
+                    td.textContent = value == null ? '' : value;
+                    tr.appendChild(td);
+                });
+                tbody.insertBefore(tr, tbody.firstChild);
+
+                const total = parseInt(totalEl.textContent, 10) + 1;
+                totalEl.textContent = total;
+            }
+
+            if (!window.EventSource) {
+                liveEl.textContent = 'обновление недоступно (нет EventSource)';
+                return;
+            }
+
+            const source = new EventSource('/api/warehouse/stream/');
+            source.onmessage = function (event) {
+                try {
+                    addRow(JSON.parse(event.data));
+                } catch (e) {
+                    /* игнорируем некорректные события */
+                }
+            };
+            source.onopen = function () {
+                liveEl.textContent = 'обновление в реальном времени';
+            };
+            source.onerror = function () {
+                liveEl.textContent = 'нет связи, переподключение…';
+            };
+        })();
+    </script>
+</body>
+</html>
