@@ -1,0 +1,4 @@
+# Шелл-скрипты всегда с LF, независимо от ОС.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf

@@ -32,6 +32,20 @@ def _broadcast(payload: dict) -> None:
         target.put(payload)
 
 
+@require_GET
+def healthz(request: HttpRequest) -> JsonResponse:
+    """Проверка живости сервиса (для healthcheck контейнера и балансировщика)."""
+    from django.db import connection
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:  # noqa: BLE001
+        return JsonResponse({"status": "error", "database": "down"}, status=503)
+    return JsonResponse({"status": "ok", "database": "up"})
+
+
 def index(request: HttpRequest):
     """Веб-страница с таблицей принятых сканов (обновляется в реальном времени)."""
     total = WarehouseScan.objects.count()

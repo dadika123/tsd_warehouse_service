@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+    image: tsd-warehouse-service:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_DB_PATH: /app/dbdata/db.sqlite3
+    ports:
+      - "${HOST_PORT:-8081}:8000"
+    volumes:
+      - warehouse_db:/app/dbdata
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz/', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  warehouse_db:
