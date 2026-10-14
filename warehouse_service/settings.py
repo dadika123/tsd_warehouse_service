@@ -104,6 +104,14 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# --- Внешний справочник продукции (UIP) -----------------------------------
+# GTIN берётся из первых 14 символов УИП, затем запрашивается карточка продукта.
+UIP_API_BASE_URL = os.environ.get(
+    "UIP_API_BASE_URL",
+    "http://172.16.16.27/uip/api/v1/product-by-gtin/",
+)
+UIP_API_TIMEOUT = int(os.environ.get("UIP_API_TIMEOUT", "5"))
+
 # --- Безопасность ---------------------------------------------------------
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"

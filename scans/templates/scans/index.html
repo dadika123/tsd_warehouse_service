@@ -47,6 +47,10 @@
                 <th>95 &middot; УИП</th>
                 <th>96 &middot; Номер груза</th>
                 <th>97 &middot; Номер паллеты</th>
+                <th>GTIN</th>
+                <th>Наименование продукта</th>
+                <th>Артикул</th>
+                <th>ID продукта</th>
                 <th>Создан</th>
             </tr>
         </thead>
@@ -58,11 +62,15 @@
                 <td>{{ scan.uip }}</td>
                 <td>{{ scan.cargo }}</td>
                 <td>{{ scan.pallet }}</td>
+                <td>{{ scan.gtin }}</td>
+                <td>{{ scan.product_name }}</td>
+                <td>{{ scan.product_article }}</td>
+                <td>{{ scan.product_id }}</td>
                 <td>{{ scan.created_at|date:"d.m.Y H:i:s" }}</td>
             </tr>
             {% empty %}
             <tr>
-                <td class="empty" colspan="6">Нет данных</td>
+                <td class="empty" colspan="10">Нет данных</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -83,7 +91,7 @@
                 const created = scan.created_at
                     ? new Date(scan.created_at).toLocaleString('ru-RU')
                     : '';
-                const cells = [scan.id, scan.solvo_data, scan.uip, scan.cargo, scan.pallet, created];
+                const cells = [scan.id, scan.solvo_data, scan.uip, scan.cargo, scan.pallet, scan.gtin, scan.product_name, scan.product_article, scan.product_id, created];
                 cells.forEach(function (value, i) {
                     const td = document.createElement('td');
                     if (i === 0) td.className = 'num';

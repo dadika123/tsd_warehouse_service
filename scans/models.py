@@ -16,6 +16,19 @@ class WarehouseScan(models.Model):
     pallet = models.CharField(
         max_length=64, blank=True, verbose_name="97 Номер паллеты"
     )
+
+    # Данные справочника продукции (UIP), подтягиваются по GTIN из УИП.
+    gtin = models.CharField(max_length=14, blank=True, verbose_name="GTIN")
+    product_name = models.CharField(
+        max_length=512, blank=True, verbose_name="Наименование продукта"
+    )
+    product_article = models.CharField(
+        max_length=128, blank=True, verbose_name="Артикул"
+    )
+    product_id = models.CharField(
+        max_length=64, blank=True, verbose_name="ID продукта"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
 
     class Meta:

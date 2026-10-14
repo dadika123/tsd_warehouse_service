@@ -111,6 +111,24 @@ curl -X POST http://localhost:8081/api/warehouse/ \
 {"status": "ok", "id": 1}
 ```
 
+## Справочник продукции (UIP)
+
+При приёме скана сервис автоматически:
+
+1. Берёт **GTIN** — первые 14 символов поля `uip` (УИП).
+2. Запрашивает карточку продукта: `GET <UIP_API_BASE_URL>?gtin=<gtin>`.
+3. Сохраняет полученные данные в поля скана: `gtin`, `product_name`,
+   `product_article`, `product_id`.
+
+Пример ответа справочника:
+
+```json
+{"is_error": false, "gtin": "04601751026019", "name": "…", "article": "50032", "product_id": "01a03dd4-…"}
+```
+
+Если товар не найден (404) или справочник недоступен, скан всё равно
+сохраняется — поля продукта остаются пустыми, событие пишется в лог.
+
 ## Конфигурация
 
 Все настройки читаются из переменных окружения (см. `.env.example`):
@@ -123,6 +141,8 @@ curl -X POST http://localhost:8081/api/warehouse/ \
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | Доверенные origin для CSRF | пусто |
 | `DJANGO_DB_PATH` | Путь к SQLite | `<project>/db.sqlite3` |
 | `DJANGO_LOG_LEVEL` | Уровень логирования | `INFO` |
+| `UIP_API_BASE_URL` | URL справочника продукции по GTIN | `http://172.16.16.27/uip/api/v1/product-by-gtin/` |
+| `UIP_API_TIMEOUT` | Таймаут запроса к справочнику, сек | `5` |
 | `HOST_PORT` | Наружный порт в Compose | `8081` |
 | `GUNICORN_WORKERS` | Число worker'ов | `1` |
 | `GUNICORN_THREADS` | Потоков на worker | `8` |
@@ -149,6 +169,7 @@ entrypoint.sh               миграции и сбор статики пере
 warehouse_service/          настройки проекта (settings, urls, wsgi/asgi)
 scans/                      приложение приёма и просмотра сканов
   models.py                 модель WarehouseScan
+  services.py               интеграция со справочником продукции UIP
   views.py                  обработчики (index, healthz, create_scan, list_scans, stream)
   urls.py                   маршруты приложения
   migrations/               миграции БД

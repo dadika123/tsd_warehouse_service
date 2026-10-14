@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import WarehouseScan
+from .services import product_fields_from_uip
 
 # Подписчики SSE (открытые вкладки браузера). Каждый — своя очередь сообщений.
 _subscribers = set()
@@ -21,6 +22,10 @@ def _serialize(scan: WarehouseScan) -> dict:
         "uip": scan.uip,
         "cargo": scan.cargo,
         "pallet": scan.pallet,
+        "gtin": scan.gtin,
+        "product_name": scan.product_name,
+        "product_article": scan.product_article,
+        "product_id": scan.product_id,
         "created_at": scan.created_at.isoformat(),
     }
 
@@ -78,11 +83,15 @@ def create_scan(request: HttpRequest) -> JsonResponse:
             {"status": "error", "message": "Ожидался JSON-объект"}, status=400
         )
 
+    uip = _field(payload, "uip")
+
+    # Подтягиваем данные продукта из справочника UIP по GTIN из УИП.
     scan = WarehouseScan.objects.create(
         solvo_data=_field(payload, "solvo_data"),
-        uip=_field(payload, "uip"),
+        uip=uip,
         cargo=_field(payload, "cargo"),
         pallet=_field(payload, "pallet"),
+        **product_fields_from_uip(uip),
     )
 
     # Толкаем новую строку во все открытые страницы.
