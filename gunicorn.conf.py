@@ -1,16 +1,20 @@
 """Конфигурация Gunicorn для продакшен-запуска сервиса.
 
-По умолчанию используется один worker с несколькими потоками: рассылка
-новых сканов (SSE) хранится в памяти процесса, поэтому она согласована
-только внутри одного worker'а. Не увеличивайте workers без перевода
-брокера подписчиков на общий внешний (Redis/RabbitMQ и т.п.).
+Используется асинхронный gevent-воркер: долгоживущие SSE-соединения (открытые
+вкладки) обслуживаются зелёными потоками (greenlets) и не занимают OS-потоки,
+поэтому даже много открытых страниц не приводят к «зависанию» сервиса.
+
+Один процесс (workers=1): рассылка новых сканов хранится в памяти процесса,
+поэтому она согласована только внутри одного воркера. Не увеличивайте
+workers без выноса брокера подписчиков во внешний сервис (Redis и т.п.).
 """
 import os
 
 bind = os.environ.get("GUNICORN_BIND", "0.0.0.0:8000")
+
+worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gevent")
 workers = int(os.environ.get("GUNICORN_WORKERS", "1"))
-worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gthread")
-threads = int(os.environ.get("GUNICORN_THREADS", "8"))
+worker_connections = int(os.environ.get("GUNICORN_WORKER_CONNECTIONS", "1000"))
 
 timeout = int(os.environ.get("GUNICORN_TIMEOUT", "120"))
 graceful_timeout = int(os.environ.get("GUNICORN_GRACEFUL_TIMEOUT", "30"))

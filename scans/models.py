@@ -29,7 +29,9 @@ class WarehouseScan(models.Model):
         max_length=64, blank=True, verbose_name="ID продукта"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    created_at = models.DateTimeField(
+        auto_now_add=True, db_index=True, verbose_name="Создан"
+    )
 
     class Meta:
         verbose_name = "Скан паллеты"
