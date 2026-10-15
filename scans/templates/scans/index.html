@@ -31,6 +31,12 @@
         td.num { text-align: right; color: #5a6a7a; }
         .empty { text-align: center; color: #5a6a7a; padding: 20px; }
         .live { color: #25aa00; }
+        td.actions { white-space: nowrap; }
+        td.actions select { font-size: 12px; padding: 2px; vertical-align: middle; }
+        td.actions button {
+            font-size: 12px; padding: 3px 8px; cursor: pointer;
+            vertical-align: middle; margin-left: 4px;
+        }
     </style>
 </head>
 <body>
@@ -52,6 +58,7 @@
                 <th>Артикул</th>
                 <th>ID продукта</th>
                 <th>Создан</th>
+                <th>XML</th>
             </tr>
         </thead>
         <tbody id="tbody">
@@ -67,10 +74,18 @@
                 <td>{{ scan.product_article }}</td>
                 <td>{{ scan.product_id }}</td>
                 <td>{{ scan.created_at|date:"d.m.Y H:i:s" }}</td>
+                <td class="actions">
+                    <select class="xml-type">
+                        {% for xml_type in xml_types %}
+                        <option value="{{ xml_type }}">{{ xml_type }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="xml-btn" data-id="{{ scan.id }}">XML</button>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td class="empty" colspan="10">Нет данных</td>
+                <td class="empty" colspan="11">Нет данных</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -81,6 +96,13 @@
             const tbody = document.getElementById('tbody');
             const totalEl = document.getElementById('total');
             const liveEl = document.getElementById('live');
+            const XML_TYPES = [{% for t in xml_types %}'{{ t|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+
+            function xmlOptions() {
+                return XML_TYPES.map(function (t) {
+                    return '<option value="' + t + '">' + t + '</option>';
+                }).join('');
+            }
 
             function addRow(scan) {
                 if (!tbody) return;
@@ -98,10 +120,32 @@
                     td.textContent = value == null ? '' : value;
                     tr.appendChild(td);
                 });
+
+                const actions = document.createElement('td');
+                actions.className = 'actions';
+                actions.innerHTML = '<select class="xml-type">' + xmlOptions() +
+                    '</select><button type="button" class="xml-btn" data-id="' +
+                    scan.id + '">XML</button>';
+                tr.appendChild(actions);
+
                 tbody.insertBefore(tr, tbody.firstChild);
 
                 const total = parseInt(totalEl.textContent, 10) + 1;
                 totalEl.textContent = total;
+            }
+
+            if (tbody) {
+                tbody.addEventListener('click', function (event) {
+                    const btn = event.target.closest('.xml-btn');
+                    if (!btn) return;
+                    const select = btn.parentElement.querySelector('.xml-type');
+                    const type = select ? select.value : XML_TYPES[0];
+                    window.open(
+                        '/api/warehouse/' + btn.getAttribute('data-id') +
+                        '/xml/' + type + '/',
+                        '_blank'
+                    );
+                });
             }
 
             if (!window.EventSource) {

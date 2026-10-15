@@ -2,13 +2,20 @@ import json
 import queue
 import threading
 
-from django.http import HttpRequest, JsonResponse, StreamingHttpResponse
+from django.http import (
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import WarehouseScan
 from .services import product_fields_from_uip
+from .solvo_xml import XML_BUILDERS, build_xml
 
 # Подписчики SSE (открытые вкладки браузера). Каждый — своя очередь сообщений.
 _subscribers = set()
@@ -56,7 +63,9 @@ def index(request: HttpRequest):
     total = WarehouseScan.objects.count()
     scans = list(WarehouseScan.objects.all()[:200])
     return render(
-        request, "scans/index.html", {"scans": scans, "total": total}
+        request,
+        "scans/index.html",
+        {"scans": scans, "total": total, "xml_types": list(XML_BUILDERS)},
     )
 
 
@@ -98,6 +107,24 @@ def create_scan(request: HttpRequest) -> JsonResponse:
     _broadcast(_serialize(scan))
 
     return JsonResponse({"status": "ok", "id": scan.id}, status=201)
+
+
+@require_GET
+def scan_xml(request: HttpRequest, scan_id: int, xml_type: str) -> HttpResponse:
+    """Отдаёт XML-документ Solvo указанного типа по данным скана."""
+    if xml_type not in XML_BUILDERS:
+        raise Http404("Неизвестный тип XML")
+
+    scan = WarehouseScan.objects.filter(pk=scan_id).first()
+    if scan is None:
+        raise Http404("Скан не найден")
+
+    content = build_xml(scan, xml_type)
+    response = HttpResponse(content, content_type="application/xml; charset=utf-8")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{xml_type}_{scan_id}.xml"'
+    )
+    return response
 
 
 @require_GET

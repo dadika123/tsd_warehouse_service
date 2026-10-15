@@ -95,6 +95,7 @@ python manage.py runserver 0.0.0.0:8001
 | `GET`  | `/healthz/` | Проверка живости сервиса и БД |
 | `POST` | `/api/warehouse/` | Принять новый скан (JSON) |
 | `GET`  | `/api/warehouse/list/?limit=50` | Список последних сканов |
+| `GET`  | `/api/warehouse/<id>/xml/<type>/` | Скачать XML Solvo для скана |
 | `GET`  | `/api/warehouse/stream/` | SSE-поток новых сканов |
 
 ### Пример создания скана
@@ -128,6 +129,36 @@ curl -X POST http://localhost:8081/api/warehouse/ \
 
 Если товар не найден (404) или справочник недоступен, скан всё равно
 сохраняется — поля продукта остаются пустыми, событие пишется в лог.
+
+## XML для Solvo
+
+В каждой строке таблицы есть кнопка **XML** с выбором типа документа. По
+нажатию формируется и скачивается файл `<type>_<id>.xml`. Поддерживаются три
+типа (структуры повторяют сообщения Solvo):
+
+- `order_reserve_info` — резервирование;
+- `receiving_result` — результат приёмки;
+- `order_result` — результат заказа.
+
+Соответствие полей скана и XML:
+
+| Поле XML | Источник |
+|----------|----------|
+| `marker3` | `solvo_data` |
+| `uip` | `uip` |
+| `order_id`, `number_order` | `cargo` |
+| `lot`, `pallets_qty` | `pallet` |
+| `name` | `product_name` |
+| `spec_tag1` | `product_article` |
+
+Поля, для которых данных нет, заполняются `-`. Постоянные реквизиты
+сообщений (`action`, `type`) сохраняются как в оригинальных документах.
+
+Прямая ссылка на скачивание:
+
+```bash
+curl -OJ http://localhost:8081/api/warehouse/1/xml/order_reserve_info/
+```
 
 ## Конфигурация
 
@@ -170,7 +201,8 @@ warehouse_service/          настройки проекта (settings, urls, w
 scans/                      приложение приёма и просмотра сканов
   models.py                 модель WarehouseScan
   services.py               интеграция со справочником продукции UIP
-  views.py                  обработчики (index, healthz, create_scan, list_scans, stream)
+  solvo_xml.py              формирование XML-документов Solvo
+  views.py                  обработчики (index, healthz, create_scan, list_scans, scan_xml, stream)
   urls.py                   маршруты приложения
   migrations/               миграции БД
   templates/scans/          HTML-шаблоны
