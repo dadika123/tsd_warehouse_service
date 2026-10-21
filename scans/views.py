@@ -390,6 +390,7 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
         )
 
     shipment_id = _field(payload, "shipmentId")
+    previous_shipment_id = _field(payload, "previousShipmentId")
     shipment_date = _field(payload, "shipmentDate")
     article = _field(payload, "article")
     requested_status = _field(payload, "status") or Shipment.STATUS_CREATED
@@ -406,6 +407,18 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
         )
 
     existing = Shipment.objects.filter(shipment_id=shipment_id).first()
+    if (
+        existing is None
+        and previous_shipment_id
+        and previous_shipment_id != shipment_id
+    ):
+        # Первый скан: заменяем placeholder-идентификатор на реальный артикул.
+        existing = Shipment.objects.filter(
+            shipment_id=previous_shipment_id
+        ).first()
+        if existing is not None:
+            existing.shipment_id = shipment_id
+
     if existing is not None:
         current_status = existing.status
         allowed = _STATUS_TRANSITIONS.get(current_status, {current_status})
