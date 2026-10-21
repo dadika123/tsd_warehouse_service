@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Отгрузки</title>
+    <style>
+        body {
+            font-family: Segoe UI, Arial, sans-serif;
+            margin: 16px;
+            color: #222;
+            background: #f5f7fa;
+        }
+        h1 { font-size: 20px; margin: 0 0 8px; }
+        .tabs { margin-bottom: 12px; display: flex; gap: 6px; }
+        .tabs a {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 6px 6px 0 0;
+            color: #45566a;
+            background: #e6ebf2;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .tabs a.active { color: #fff; background: #ff9800; }
+        .meta { margin-bottom: 12px; color: #5a6a7a; font-size: 14px; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #d8e0eb;
+            padding: 6px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th { background: #eef2f7; }
+        tbody tr:nth-child(even) { background: #fafbfd; }
+        td.num { text-align: right; color: #5a6a7a; }
+        td.actions { white-space: nowrap; }
+        .download-btn {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            background: #ff9800;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .empty { text-align: center; color: #5a6a7a; padding: 20px; }
+        .generate-form { display: inline-flex; gap: 4px; align-items: center; }
+        .generate-form select { font-size: 12px; padding: 2px 4px; }
+        .generate-form button {
+            font-size: 12px; padding: 3px 8px; cursor: pointer;
+        }
+        .inline-form { display: inline-block; margin-left: 6px; }
+        .inline-form button {
+            font-size: 12px; padding: 3px 8px; cursor: pointer;
+        }
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-created { background: #e6ebf2; color: #45566a; }
+        .status-in_work { background: #fff3e0; color: #b26a00; }
+        .status-closed { background: #e3f2fd; color: #1565c0; }
+        .status-completed { background: #e8f5e9; color: #2e7d32; }
+        .status-deleted { background: #ffebee; color: #c62828; }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <a href="/">Сканирование</a>
+        <a href="/shipments/" class="active">Отгрузки</a>
+    </div>
+
+    <h1>Отгрузки</h1>
+    <div class="meta">
+        Всего отгрузок: <strong>{{ total }}</strong>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Идентификатор отгрузки</th>
+                <th>Дата отгрузки</th>
+                <th>Артикул товара</th>
+                <th>Статус</th>
+                <th>Создано</th>
+                <th>Завершено</th>
+                <th>Упаковок</th>
+                <th>Дочерних кодов</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="shipment-tbody">
+            {% for shipment in shipments %}
+            <tr>
+                <td class="num">{{ shipment.id }}</td>
+                <td>{{ shipment.shipment_id }}</td>
+                <td>{{ shipment.shipment_date }}</td>
+                <td>{{ shipment.article }}</td>
+                <td>
+                    <span class="status status-{{ shipment.status }}">{{ shipment.get_status_display }}</span>
+                </td>
+                <td>{{ shipment.created_at|date:"d.m.Y H:i:s" }}</td>
+                <td>{% if shipment.finished_at %}{{ shipment.finished_at|date:"d.m.Y H:i:s" }}{% else %}—{% endif %}</td>
+                <td class="num">{{ shipment.packages_count }}</td>
+                <td class="num">{{ shipment.children_count }}</td>
+                <td class="actions">
+                    {% if shipment.status == 'closed' or shipment.status == 'completed' %}
+                        {% if shipment.aggregations %}
+                        <form method="post" action="{% url 'generate_shipment_file' shipment.id %}" class="generate-form">
+                            <select name="file_format">
+                                <option value="xml" selected>XML</option>
+                                <option value="json">JSON</option>
+                            </select>
+                            <button type="submit">Скачать</button>
+                        </form>
+                        {% elif shipment.file %}
+                        <a class="download-btn" href="{{ shipment.file.url }}" target="_blank">Скачать</a>
+                        {% endif %}
+                        {% if shipment.status == 'closed' %}
+                        <form method="post" action="{% url 'send_shipment_to_1c' shipment.id %}" class="inline-form">
+                            <button type="submit">Отправить в 1С</button>
+                        </form>
+                        {% endif %}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td class="empty" colspan="10">Отгрузок пока нет</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        (function () {
+            const tbody = document.getElementById('shipment-tbody');
+            const totalEl = document.querySelector('.meta strong');
+            const selectedFormats = {};
+            let lastSignature = '';
+
+            function formatDate(value) {
+                if (!value) return '—';
+                const date = new Date(value);
+                if (isNaN(date.getTime())) return value;
+                return date.toLocaleString('ru-RU', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+            }
+
+            function cell(text, className) {
+                const td = document.createElement('td');
+                if (className) td.className = className;
+                td.textContent = text == null ? '' : String(text);
+                return td;
+            }
+
+            function buildActions(shipment) {
+                const td = document.createElement('td');
+                td.className = 'actions';
+
+                if (shipment.can_download) {
+                    if (shipment.has_aggregations) {
+                        const form = document.createElement('form');
+                        form.method = 'post';
+                        form.action = '/shipments/' + shipment.id + '/generate/';
+                        form.className = 'generate-form';
+
+                        const select = document.createElement('select');
+                        select.name = 'file_format';
+                        ['xml', 'json'].forEach(function (fmt) {
+                            const option = document.createElement('option');
+                            option.value = fmt;
+                            option.textContent = fmt.toUpperCase();
+                            if ((selectedFormats[shipment.id] || 'xml') === fmt) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                        select.addEventListener('change', function () {
+                            selectedFormats[shipment.id] = select.value;
+                        });
+
+                        const button = document.createElement('button');
+                        button.type = 'submit';
+                        button.textContent = 'Скачать';
+
+                        form.appendChild(select);
+                        form.appendChild(button);
+                        td.appendChild(form);
+                    } else if (shipment.file_url) {
+                        const link = document.createElement('a');
+                        link.className = 'download-btn';
+                        link.href = shipment.file_url;
+                        link.target = '_blank';
+                        link.textContent = 'Скачать';
+                        td.appendChild(link);
+                    }
+                }
+
+                if (shipment.can_send_1c) {
+                    const form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = '/shipments/' + shipment.id + '/send-1c/';
+                    form.className = 'inline-form';
+                    const button = document.createElement('button');
+                    button.type = 'submit';
+                    button.textContent = 'Отправить в 1С';
+                    form.appendChild(button);
+                    td.appendChild(form);
+                }
+
+                if (!td.childElementCount) td.textContent = '—';
+                return td;
+            }
+
+            function render(items) {
+                tbody.innerHTML = '';
+                if (!items.length) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.className = 'empty';
+                    td.colSpan = 10;
+                    td.textContent = 'Отгрузок пока нет';
+                    tr.appendChild(td);
+                    tbody.appendChild(tr);
+                    if (totalEl) totalEl.textContent = '0';
+                    return;
+                }
+
+                items.forEach(function (shipment) {
+                    const tr = document.createElement('tr');
+                    tr.appendChild(cell(shipment.id, 'num'));
+                    tr.appendChild(cell(shipment.shipment_id));
+                    tr.appendChild(cell(shipment.shipment_date));
+                    tr.appendChild(cell(shipment.article));
+
+                    const statusTd = document.createElement('td');
+                    const badge = document.createElement('span');
+                    badge.className = 'status status-' + shipment.status;
+                    badge.textContent = shipment.status_display;
+                    statusTd.appendChild(badge);
+                    tr.appendChild(statusTd);
+
+                    tr.appendChild(cell(formatDate(shipment.created_at)));
+                    tr.appendChild(cell(shipment.finished_at ? formatDate(shipment.finished_at) : '—'));
+                    tr.appendChild(cell(shipment.packages_count, 'num'));
+                    tr.appendChild(cell(shipment.children_count, 'num'));
+                    tr.appendChild(buildActions(shipment));
+                    tbody.appendChild(tr);
+                });
+                if (totalEl) totalEl.textContent = String(items.length);
+            }
+
+            async function refreshShipments() {
+                try {
+                    const response = await fetch('/api/shipments/list/?limit=200', {cache: 'no-store'});
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    const signature = JSON.stringify(data.items);
+                    if (signature === lastSignature) return;
+                    lastSignature = signature;
+                    render(data.items || []);
+                } catch (error) {
+                    // Сеть недоступна — попробуем при следующем событии/опросе.
+                }
+            }
+
+            if (window.EventSource) {
+                const source = new EventSource('/api/shipments/stream/');
+                source.onmessage = refreshShipments;
+            }
+            setInterval(refreshShipments, 10000);
+            refreshShipments();
+        })();
+    </script>
+</body>
+</html>
