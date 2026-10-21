@@ -37,9 +37,25 @@
             font-size: 12px; padding: 3px 8px; cursor: pointer;
             vertical-align: middle; margin-left: 4px;
         }
+        .tabs { margin-bottom: 12px; display: flex; gap: 6px; }
+        .tabs a {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 6px 6px 0 0;
+            color: #45566a;
+            background: #e6ebf2;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .tabs a.active { color: #fff; background: #ff9800; }
     </style>
 </head>
 <body>
+    <div class="tabs">
+        <a href="/" class="active">Сканирование</a>
+        <a href="/shipments/">Отгрузки</a>
+    </div>
     <h1>Сканы паллет</h1>
     <div class="meta">
         Всего записей: <span id="total">{{ total }}</span> &middot; показаны последние {{ scans|length }}
