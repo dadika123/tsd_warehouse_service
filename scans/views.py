@@ -101,10 +101,12 @@ _STATUS_TRANSITIONS = {
         Shipment.STATUS_CREATED,
         Shipment.STATUS_IN_WORK,
         Shipment.STATUS_CLOSED,
+        Shipment.STATUS_ERROR,
     },
     Shipment.STATUS_IN_WORK: {
         Shipment.STATUS_IN_WORK,
         Shipment.STATUS_CLOSED,
+        Shipment.STATUS_ERROR,
     },
     Shipment.STATUS_CLOSED: {
         Shipment.STATUS_CLOSED,
@@ -113,6 +115,10 @@ _STATUS_TRANSITIONS = {
     },
     Shipment.STATUS_COMPLETED: {
         Shipment.STATUS_COMPLETED,
+        Shipment.STATUS_DELETED,
+    },
+    Shipment.STATUS_ERROR: {
+        Shipment.STATUS_ERROR,
         Shipment.STATUS_DELETED,
     },
     Shipment.STATUS_DELETED: {
@@ -419,7 +425,11 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
             )
         existing.status = new_status
         if (
-            new_status in (Shipment.STATUS_CLOSED, Shipment.STATUS_COMPLETED)
+            new_status in (
+                Shipment.STATUS_CLOSED,
+                Shipment.STATUS_COMPLETED,
+                Shipment.STATUS_ERROR,
+            )
             and existing.finished_at is None
         ):
             existing.finished_at = timezone.now()
@@ -461,7 +471,11 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
         )
 
     finished_at = None
-    if requested_status in (Shipment.STATUS_CLOSED, Shipment.STATUS_COMPLETED):
+    if requested_status in (
+        Shipment.STATUS_CLOSED,
+        Shipment.STATUS_COMPLETED,
+        Shipment.STATUS_ERROR,
+    ):
         finished_at = timezone.now()
 
     shipment = Shipment(
