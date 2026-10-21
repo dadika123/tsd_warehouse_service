@@ -56,12 +56,14 @@ class Shipment(models.Model):
     STATUS_IN_WORK = "in_work"
     STATUS_CLOSED = "closed"
     STATUS_COMPLETED = "completed"
+    STATUS_ERROR = "error"
     STATUS_DELETED = "deleted"
     STATUS_CHOICES = [
         (STATUS_CREATED, "Создано"),
         (STATUS_IN_WORK, "В работе"),
         (STATUS_CLOSED, "Закрыто"),
         (STATUS_COMPLETED, "Завершено"),
+        (STATUS_ERROR, "Ошибка"),
         (STATUS_DELETED, "Удалено"),
     ]
 
