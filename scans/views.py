@@ -390,21 +390,10 @@ def shipment_consumer_codes(request: HttpRequest, shipment_id: str) -> JsonRespo
     """Потребительские коды отгрузки по её идентификатору (без агрегационных)."""
     shipment = Shipment.objects.filter(shipment_id=shipment_id).first()
     if shipment is None:
-        return JsonResponse(
-            {"status": "error", "message": "Отгрузка не найдена"},
-            status=404,
-        )
+        return JsonResponse([], safe=False, status=404)
 
     codes = _consumer_codes(_normalize_aggregations(shipment.aggregations))
-    return JsonResponse(
-        {
-            "status": "ok",
-            "shipment_id": shipment.shipment_id,
-            "article": shipment.article,
-            "count": len(codes),
-            "codes": codes,
-        }
-    )
+    return JsonResponse(codes, safe=False)
 
 
 @csrf_exempt
