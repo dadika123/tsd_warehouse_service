@@ -119,20 +119,20 @@ curl -X POST http://localhost:8081/api/warehouse/ \
 | `GET`  | `/shipments/` | Веб-страница отгрузок и выгрузки файлов |
 | `POST` | `/api/shipments/` | Создать/обновить отгрузку от ТСД (JSON) |
 | `GET`  | `/api/shipments/list/?limit=50` | Список последних отгрузок |
-| `GET`  | `/api/shipments/<shipment_id>/codes/` | Только потребительские коды отгрузки (JSON-массив) |
+| `GET`  | `/api/v1/shipments/<shipment_id>/codes/` | Только потребительские коды отгрузки (JSON-массив) |
 | `GET`  | `/api/shipments/stream/` | SSE-поток изменений отгрузок |
 | `POST` | `/shipments/<id>/generate/` | Сформировать файл: `file_format` = `json`, `xml` или `txt` |
 
 ### Потребительские коды отгрузки
 
-`GET /api/shipments/<shipment_id>/codes/` возвращает **только потребительские
+`GET /api/v1/shipments/<shipment_id>/codes/` возвращает **только потребительские
 коды** выбранной отгрузки — без кодов агрегационных упаковок. `shipment_id` —
 строковый идентификатор отгрузки (например, `13541261021020`), а не PK базы.
 
 Ответ — JSON-массив строк, без обёртки и метаданных:
 
 ```bash
-curl http://localhost:8081/api/shipments/13541261021020/codes/
+curl http://localhost:8081/api/v1/shipments/13541261021020/codes/
 ```
 
 ```json

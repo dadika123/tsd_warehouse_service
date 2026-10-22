@@ -94,6 +94,17 @@ class ShipmentConsumerCodesApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), ["U1", "U2", "U3"])
 
+    def test_legacy_url_still_returns_codes(self):
+        response = self.client.get(
+            reverse(
+                "shipment_consumer_codes_legacy",
+                args=[self.shipment.shipment_id],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), ["U1", "U2", "U3"])
+
     def test_excludes_nested_aggregation_codes(self):
         shipment = Shipment.objects.create(
             shipment_id="PALLET-1",
