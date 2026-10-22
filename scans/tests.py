@@ -92,16 +92,7 @@ class ShipmentConsumerCodesApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "status": "ok",
-                "shipment_id": "13541261021020",
-                "article": "13541",
-                "count": 3,
-                "codes": ["U1", "U2", "U3"],
-            },
-        )
+        self.assertEqual(response.json(), ["U1", "U2", "U3"])
 
     def test_excludes_nested_aggregation_codes(self):
         shipment = Shipment.objects.create(
@@ -121,8 +112,7 @@ class ShipmentConsumerCodesApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["codes"], ["U1", "U2", "U3"])
-        self.assertEqual(response.json()["count"], 3)
+        self.assertEqual(response.json(), ["U1", "U2", "U3"])
 
     def test_unknown_shipment_returns_404(self):
         response = self.client.get(
@@ -130,7 +120,7 @@ class ShipmentConsumerCodesApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["status"], "error")
+        self.assertEqual(response.json(), [])
 
     def test_shipment_without_aggregations_returns_empty_list(self):
         shipment = Shipment.objects.create(
@@ -146,6 +136,5 @@ class ShipmentConsumerCodesApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["codes"], [])
-        self.assertEqual(response.json()["count"], 0)
+        self.assertEqual(response.json(), [])
 
