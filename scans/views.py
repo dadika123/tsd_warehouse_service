@@ -385,6 +385,28 @@ def list_shipments(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok", "count": len(items), "items": items})
 
 
+@require_GET
+def shipment_consumer_codes(request: HttpRequest, shipment_id: str) -> JsonResponse:
+    """Потребительские коды отгрузки по её идентификатору (без агрегационных)."""
+    shipment = Shipment.objects.filter(shipment_id=shipment_id).first()
+    if shipment is None:
+        return JsonResponse(
+            {"status": "error", "message": "Отгрузка не найдена"},
+            status=404,
+        )
+
+    codes = _consumer_codes(_normalize_aggregations(shipment.aggregations))
+    return JsonResponse(
+        {
+            "status": "ok",
+            "shipment_id": shipment.shipment_id,
+            "article": shipment.article,
+            "count": len(codes),
+            "codes": codes,
+        }
+    )
+
+
 @csrf_exempt
 @require_POST
 def create_shipment(request: HttpRequest) -> JsonResponse:
