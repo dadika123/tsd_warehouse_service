@@ -314,6 +314,24 @@ def _build_shipment_xml(
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
+def _consumer_codes(aggregations: list[dict]) -> list[str]:
+    """Потребительские коды отгрузки: дочерние, не являющиеся агрегациями."""
+    parents = {str(item["parentCode"]) for item in aggregations}
+    codes: list[str] = []
+    for item in aggregations:
+        for child in item.get("childCodes", []):
+            code = str(child).strip()
+            if code and code not in parents and code not in codes:
+                codes.append(code)
+    return codes
+
+
+def _build_shipment_txt(aggregations: list[dict]) -> bytes:
+    """TXT-выгрузка: только потребительские коды, по одному в строке."""
+    codes = _consumer_codes(aggregations)
+    return ("\n".join(codes) + ("\n" if codes else "")).encode("utf-8")
+
+
 def _safe_filename(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
     return cleaned or "shipment"
@@ -375,7 +393,7 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
       {shipmentId, shipmentDate, article,
        aggregations: [{parentCode, childCodes: [...]}, ...]}
     Сохраняет запись и данные агрегации. Файл формируется позже на вкладке
-    «Отгрузки» в выбранном там формате (JSON/XML).
+    «Отгрузки» в выбранном там формате (JSON/XML/TXT).
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))
@@ -524,10 +542,14 @@ def create_shipment(request: HttpRequest) -> JsonResponse:
 @csrf_exempt
 @require_POST
 def generate_shipment_file(request: HttpRequest, shipment_id: int):
-    """Формирует файл отгрузки в выбранном в сервисе формате (JSON/XML)."""
+    """Формирует файл отгрузки в выбранном в сервисе формате (JSON/XML/TXT)."""
     file_format = (request.POST.get("file_format") or "").lower()
-    if file_format not in (Shipment.FORMAT_JSON, Shipment.FORMAT_XML):
-        return HttpResponse("Формат должен быть json или xml", status=400)
+    if file_format not in (
+        Shipment.FORMAT_JSON,
+        Shipment.FORMAT_XML,
+        Shipment.FORMAT_TXT,
+    ):
+        return HttpResponse("Формат должен быть json, xml или txt", status=400)
 
     shipment = Shipment.objects.filter(pk=shipment_id).first()
     if shipment is None:
@@ -544,6 +566,8 @@ def generate_shipment_file(request: HttpRequest, shipment_id: int):
             shipment.article,
             aggregations,
         )
+    elif file_format == Shipment.FORMAT_TXT:
+        content = _build_shipment_txt(aggregations)
     else:
         content = _build_shipment_json(
             shipment.shipment_id,
