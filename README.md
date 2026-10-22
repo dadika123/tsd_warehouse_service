@@ -123,6 +123,9 @@ curl -X POST http://localhost:8081/api/warehouse/ \
 | `GET`  | `/api/shipments/stream/` | SSE-поток изменений отгрузок |
 | `POST` | `/shipments/<id>/generate/` | Сформировать файл: `file_format` = `json`, `xml` или `txt` |
 
+На вкладке «Отгрузки» доступны фильтры по дате, диапазону дат, статусу и
+артикулу, а также пагинация по 100 записей.
+
 ### Потребительские коды отгрузки
 
 `GET /api/v1/shipments/<shipment_id>/codes/` возвращает **только потребительские

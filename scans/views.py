@@ -3,8 +3,11 @@ import queue
 import re
 import threading
 import xml.etree.ElementTree as ET
+from datetime import datetime
+from urllib.parse import urlencode
 
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from pathlib import Path
 
 from django.http import (
@@ -362,13 +365,89 @@ def _serialize_shipment(shipment: Shipment) -> dict:
     }
 
 
+PAGE_SIZE = 100
+
+
+def _parse_iso_date(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_shipment_date(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%d.%m.%Y").date()
+    except (TypeError, ValueError):
+        return None
+
+
 def shipments(request: HttpRequest):
-    """Отдельная вкладка со списком отгрузок и ссылками на файлы."""
-    items = list(Shipment.objects.all()[:200])
+    """Вкладка «Отгрузки»: фильтры по дате/статусу/артикулу и пагинация."""
+    filters = {
+        "date": (request.GET.get("date") or "").strip(),
+        "date_from": (request.GET.get("date_from") or "").strip(),
+        "date_to": (request.GET.get("date_to") or "").strip(),
+        "status": (request.GET.get("status") or "").strip(),
+        "article": (request.GET.get("article") or "").strip(),
+    }
+
+    status_choices = Shipment.STATUS_CHOICES
+    valid_statuses = {value for value, _ in status_choices}
+
+    queryset = Shipment.objects.all()
+    if filters["status"] in valid_statuses:
+        queryset = queryset.filter(status=filters["status"])
+    if filters["article"]:
+        queryset = queryset.filter(article__icontains=filters["article"])
+
+    items = list(queryset)
+
+    exact_date = _parse_iso_date(filters["date"])
+    date_from = _parse_iso_date(filters["date_from"])
+    date_to = _parse_iso_date(filters["date_to"])
+    if exact_date or date_from or date_to:
+        filtered = []
+        for shipment in items:
+            value = _parse_shipment_date(shipment.shipment_date)
+            if value is None:
+                continue
+            if exact_date and value != exact_date:
+                continue
+            if date_from and value < date_from:
+                continue
+            if date_to and value > date_to:
+                continue
+            filtered.append(shipment)
+        items = filtered
+
+    total = Shipment.objects.count()
+    filtered_total = len(items)
+    paginator = Paginator(items, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    active_filters = {key: value for key, value in filters.items() if value}
+    filter_query = urlencode(active_filters)
+    if filter_query:
+        filter_query += "&"
+
     return render(
         request,
         "scans/shipments.html",
-        {"shipments": items, "total": Shipment.objects.count()},
+        {
+            "shipments": page_obj,
+            "page_obj": page_obj,
+            "total": total,
+            "filtered_total": filtered_total,
+            "filters": filters,
+            "status_choices": status_choices,
+            "filter_query": filter_query,
+            "live_updates": not active_filters and page_obj.number == 1,
+        },
     )
 
 

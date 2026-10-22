@@ -149,3 +149,113 @@ class ShipmentConsumerCodesApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
 
+
+
+class ShipmentFilterTests(TestCase):
+    def setUp(self):
+        Shipment.objects.create(
+            shipment_id="F-1",
+            shipment_date="20.10.2026",
+            article="13541",
+            status=Shipment.STATUS_CLOSED,
+        )
+        Shipment.objects.create(
+            shipment_id="F-2",
+            shipment_date="21.10.2026",
+            article="13500",
+            status=Shipment.STATUS_IN_WORK,
+        )
+        Shipment.objects.create(
+            shipment_id="F-3",
+            shipment_date="22.10.2026",
+            article="13541",
+            status=Shipment.STATUS_ERROR,
+        )
+
+    def test_filters_by_article(self):
+        response = self.client.get(reverse("shipments"), {"article": "13541"})
+
+        self.assertEqual(response.context["filtered_total"], 2)
+        self.assertEqual(
+            [shipment.shipment_id for shipment in response.context["shipments"]],
+            ["F-3", "F-1"],
+        )
+        self.assertFalse(response.context["live_updates"])
+
+    def test_filters_by_status(self):
+        response = self.client.get(reverse("shipments"), {"status": "closed"})
+
+        self.assertEqual(
+            [shipment.shipment_id for shipment in response.context["shipments"]],
+            ["F-1"],
+        )
+
+    def test_filters_by_date(self):
+        response = self.client.get(reverse("shipments"), {"date": "2026-10-21"})
+
+        self.assertEqual(
+            [shipment.shipment_id for shipment in response.context["shipments"]],
+            ["F-2"],
+        )
+
+    def test_filters_by_date_range(self):
+        response = self.client.get(
+            reverse("shipments"),
+            {"date_from": "2026-10-21", "date_to": "2026-10-22"},
+        )
+
+        self.assertEqual(
+            {shipment.shipment_id for shipment in response.context["shipments"]},
+            {"F-2", "F-3"},
+        )
+
+    def test_filters_are_combined(self):
+        response = self.client.get(
+            reverse("shipments"),
+            {"date_from": "2026-10-21", "article": "13541"},
+        )
+
+        self.assertEqual(
+            [shipment.shipment_id for shipment in response.context["shipments"]],
+            ["F-3"],
+        )
+        self.assertIn("article=13541", response.context["filter_query"])
+        self.assertIn("date_from=2026-10-21", response.context["filter_query"])
+
+    def test_no_filters_enables_live_updates(self):
+        response = self.client.get(reverse("shipments"))
+
+        self.assertTrue(response.context["live_updates"])
+        self.assertEqual(response.context["filtered_total"], 3)
+
+
+class ShipmentPaginationTests(TestCase):
+    def setUp(self):
+        for index in range(105):
+            Shipment.objects.create(
+                shipment_id=f"P-{index:03d}",
+                shipment_date="21.10.2026",
+                article="13541",
+                status=Shipment.STATUS_CLOSED,
+            )
+
+    def test_first_page_has_100_records(self):
+        response = self.client.get(reverse("shipments"))
+
+        self.assertEqual(len(response.context["shipments"]), 100)
+        self.assertEqual(response.context["page_obj"].number, 1)
+
+    def test_second_page_has_remaining_records(self):
+        response = self.client.get(reverse("shipments"), {"page": 2})
+
+        self.assertEqual(len(response.context["shipments"]), 5)
+        self.assertEqual(response.context["page_obj"].number, 2)
+        self.assertFalse(response.context["live_updates"])
+
+    def test_pagination_keeps_filters(self):
+        response = self.client.get(
+            reverse("shipments"),
+            {"article": "13541", "page": 2},
+        )
+
+        self.assertEqual(response.context["filter_query"], "article=13541&")

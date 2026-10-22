@@ -75,6 +75,56 @@
         .status-completed { background: #e8f5e9; color: #2e7d32; }
         .status-error { background: #fce4ec; color: #b71c1c; }
         .status-deleted { background: #ffebee; color: #c62828; }
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+            background: #fff;
+            border: 1px solid #d8e0eb;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+        }
+        .filters label {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 12px;
+            color: #5a6a7a;
+        }
+        .filters input, .filters select {
+            font-size: 13px;
+            padding: 4px 6px;
+            border: 1px solid #c7d2df;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .filter-buttons { display: flex; gap: 8px; align-items: center; }
+        .filter-buttons button {
+            font-size: 13px;
+            padding: 5px 12px;
+            cursor: pointer;
+            background: #ff9800;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .filter-buttons a { font-size: 13px; color: #45566a; text-decoration: none; }
+        .filter-buttons a:hover { text-decoration: underline; }
+        .pagination {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #5a6a7a;
+        }
+        .pagination a { color: #1565c0; text-decoration: none; font-weight: 600; }
+        .pagination a:hover { text-decoration: underline; }
+        .pagination .current { color: #5a6a7a; }
     </style>
 </head>
 <body>
@@ -84,8 +134,38 @@
     </div>
 
     <h1>Отгрузки</h1>
+
+    <form method="get" action="/shipments/" class="filters">
+        <label>Дата
+            <input type="date" name="date" value="{{ filters.date }}">
+        </label>
+        <label>С даты
+            <input type="date" name="date_from" value="{{ filters.date_from }}">
+        </label>
+        <label>По дату
+            <input type="date" name="date_to" value="{{ filters.date_to }}">
+        </label>
+        <label>Статус
+            <select name="status">
+                <option value="">Все статусы</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Артикул
+            <input type="text" name="article" value="{{ filters.article }}" placeholder="например, 13541">
+        </label>
+        <div class="filter-buttons">
+            <button type="submit">Применить</button>
+            <a href="/shipments/">Сбросить</a>
+        </div>
+    </form>
+
     <div class="meta">
         Всего отгрузок: <strong>{{ total }}</strong>
+        {% if filtered_total != total %} · по фильтру: <strong>{{ filtered_total }}</strong>{% endif %}
+        {% if filtered_total %} · показано {{ page_obj.start_index }}–{{ page_obj.end_index }}{% endif %}
     </div>
 
     <table>
@@ -143,16 +223,30 @@
             </tr>
             {% empty %}
             <tr>
-                <td class="empty" colspan="10">Отгрузок пока нет</td>
+                <td class="empty" colspan="10">
+                    {% if filter_query %}Ничего не найдено{% else %}Отгрузок пока нет{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?{{ filter_query }}page={{ page_obj.previous_page_number }}">← Назад</a>
+        {% endif %}
+        <span class="current">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?{{ filter_query }}page={{ page_obj.next_page_number }}">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if live_updates %}
     <script>
         (function () {
             const tbody = document.getElementById('shipment-tbody');
-            const totalEl = document.querySelector('.meta strong');
             const selectedFormats = {};
             let lastSignature = '';
 
@@ -242,7 +336,6 @@
                     td.textContent = 'Отгрузок пока нет';
                     tr.appendChild(td);
                     tbody.appendChild(tr);
-                    if (totalEl) totalEl.textContent = '0';
                     return;
                 }
 
@@ -267,12 +360,11 @@
                     tr.appendChild(buildActions(shipment));
                     tbody.appendChild(tr);
                 });
-                if (totalEl) totalEl.textContent = String(items.length);
             }
 
             async function refreshShipments() {
                 try {
-                    const response = await fetch('/api/shipments/list/?limit=200', {cache: 'no-store'});
+                    const response = await fetch('/api/shipments/list/?limit=100', {cache: 'no-store'});
                     if (!response.ok) return;
                     const data = await response.json();
                     const signature = JSON.stringify(data.items);
@@ -292,5 +384,6 @@
             refreshShipments();
         })();
     </script>
+    {% endif %}
 </body>
 </html>
