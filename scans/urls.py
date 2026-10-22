@@ -28,6 +28,11 @@ urlpatterns = [
     path("api/shipments/", views.create_shipment, name="create_shipment"),
     path("api/shipments/list/", views.list_shipments, name="list_shipments"),
     path(
+        "api/shipments/<str:shipment_id>/codes/",
+        views.shipment_consumer_codes,
+        name="shipment_consumer_codes",
+    ),
+    path(
         "api/shipments/stream/",
         views.shipment_stream,
         name="shipment_stream",

@@ -71,3 +71,81 @@ class ShipmentTxtViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+
+class ShipmentConsumerCodesApiTests(TestCase):
+    def setUp(self):
+        self.shipment = Shipment.objects.create(
+            shipment_id="13541261021020",
+            shipment_date="21.10.2026",
+            article="13541",
+            status=Shipment.STATUS_CLOSED,
+            aggregations=[
+                {"parentCode": "BOX-1", "childCodes": ["U1", "U2", "U2"]},
+                {"parentCode": "BOX-2", "childCodes": ["U2", "U3"]},
+            ],
+        )
+
+    def test_returns_only_consumer_codes(self):
+        response = self.client.get(
+            reverse("shipment_consumer_codes", args=[self.shipment.shipment_id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "ok",
+                "shipment_id": "13541261021020",
+                "article": "13541",
+                "count": 3,
+                "codes": ["U1", "U2", "U3"],
+            },
+        )
+
+    def test_excludes_nested_aggregation_codes(self):
+        shipment = Shipment.objects.create(
+            shipment_id="PALLET-1",
+            shipment_date="21.10.2026",
+            article="13500",
+            status=Shipment.STATUS_CLOSED,
+            aggregations=[
+                {"parentCode": "PALLET", "childCodes": ["BOX-1", "BOX-2"]},
+                {"parentCode": "BOX-1", "childCodes": ["U1", "U2"]},
+                {"parentCode": "BOX-2", "childCodes": ["U3"]},
+            ],
+        )
+
+        response = self.client.get(
+            reverse("shipment_consumer_codes", args=[shipment.shipment_id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["codes"], ["U1", "U2", "U3"])
+        self.assertEqual(response.json()["count"], 3)
+
+    def test_unknown_shipment_returns_404(self):
+        response = self.client.get(
+            reverse("shipment_consumer_codes", args=["UNKNOWN"])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["status"], "error")
+
+    def test_shipment_without_aggregations_returns_empty_list(self):
+        shipment = Shipment.objects.create(
+            shipment_id="EMPTY-1",
+            shipment_date="21.10.2026",
+            article="13541",
+            status=Shipment.STATUS_CREATED,
+            aggregations=[],
+        )
+
+        response = self.client.get(
+            reverse("shipment_consumer_codes", args=[shipment.shipment_id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["codes"], [])
+        self.assertEqual(response.json()["count"], 0)
+
