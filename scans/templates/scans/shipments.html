@@ -124,6 +124,7 @@
                             <select name="file_format">
                                 <option value="xml" selected>XML</option>
                                 <option value="json">JSON</option>
+                                <option value="txt">TXT</option>
                             </select>
                             <button type="submit">Скачать</button>
                         </form>
@@ -185,7 +186,7 @@
 
                         const select = document.createElement('select');
                         select.name = 'file_format';
-                        ['xml', 'json'].forEach(function (fmt) {
+                        ['xml', 'json', 'txt'].forEach(function (fmt) {
                             const option = document.createElement('option');
                             option.value = fmt;
                             option.textContent = fmt.toUpperCase();

@@ -43,13 +43,15 @@ class WarehouseScan(models.Model):
 
 
 class Shipment(models.Model):
-    """Отгрузка: уникальный код, дата, артикул и файл агрегации (XML/JSON)."""
+    """Отгрузка: уникальный код, дата, артикул и файл агрегации (XML/JSON/TXT)."""
 
     FORMAT_JSON = "json"
     FORMAT_XML = "xml"
+    FORMAT_TXT = "txt"
     FORMAT_CHOICES = [
         (FORMAT_JSON, "JSON"),
         (FORMAT_XML, "XML"),
+        (FORMAT_TXT, "TXT"),
     ]
 
     STATUS_CREATED = "created"
